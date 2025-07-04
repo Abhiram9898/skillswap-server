@@ -16,7 +16,6 @@ const skillSchema = new mongoose.Schema({
   category: {
     type: String,
     required: [true, 'A skill must have a category'],
-    // FIX: Added 'Cooking' to match the frontend categories
     enum: ['Programming', 'Design', 'Music', 'Language', 'Cooking', 'Other'],
     index: true
   },
@@ -30,7 +29,8 @@ const skillSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
-  // This field will be populated by the Review model via a pre-save hook
+  // This field will store ObjectIDs of reviews.
+  // It needs to be explicitly updated when reviews are created/deleted.
   reviews: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Review'
@@ -40,12 +40,11 @@ const skillSchema = new mongoose.Schema({
     default: 0,
     min: 0,
     max: 5,
-    // Round the average rating to two decimal places when setting it
     set: val => Math.round(val * 100) / 100
   },
   numReviews: {
-      type: Number,
-      default: 0
+    type: Number,
+    default: 0
   }
 }, {
   timestamps: true,
@@ -60,11 +59,11 @@ skillSchema.index({ pricePerHour: 1, averageRating: -1 });
 /**
  * @desc    Static method to calculate the average rating for a skill
  * @param   {string} skillId - The ID of the skill to update
- * * This function calculates the average of all review ratings for a given skill
- * and updates the 'averageRating' and 'numReviews' fields on the skill document.
  */
 skillSchema.statics.calculateAverageRating = async function(skillId) {
-  const stats = await this.model('Review').aggregate([
+  const Review = mongoose.model('Review'); // Avoid circular dependency
+
+  const stats = await Review.aggregate([
     {
       $match: { skillId: skillId }
     },
@@ -77,21 +76,21 @@ skillSchema.statics.calculateAverageRating = async function(skillId) {
     }
   ]);
 
-  if (stats.length > 0) {
-    await this.findByIdAndUpdate(skillId, {
-      numReviews: stats[0].numReviews,
-      averageRating: stats[0].avgRating
-    });
-  } else {
-    // If no reviews exist, reset to defaults
-    await this.findByIdAndUpdate(skillId, {
-      numReviews: 0,
-      averageRating: 0
-    });
+  try {
+    if (stats.length > 0) {
+      await this.findByIdAndUpdate(skillId, {
+        numReviews: stats[0].numReviews,
+        averageRating: stats[0].avgRating
+      });
+    } else {
+      await this.findByIdAndUpdate(skillId, {
+        numReviews: 0,
+        averageRating: 0
+      });
+    }
+  } catch (err) {
+    console.error('Error calculating average rating for skill:', skillId, err);
   }
 };
-
-// Hook to call the calculation after a review is saved
-// This will be on the Review model, which we'll see next.
 
 module.exports = mongoose.model('Skill', skillSchema);
