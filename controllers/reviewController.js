@@ -1,6 +1,6 @@
 const Review = require('../models/Review');
 const Booking = require('../models/Booking');
-const Skill = require('../models/Skill');
+const Skill = require('../models/Skill'); // Ensure Skill model is imported
 const asyncHandler = require('../middleware/asyncHandler');
 
 /**
@@ -41,6 +41,17 @@ exports.createReview = asyncHandler(async (req, res) => {
     rating,
     comment,
   });
+
+  // --- FIX START: Update the Skill's reviews array ---
+  const skillToUpdate = await Skill.findById(skillId);
+  if (skillToUpdate) {
+    // Check if the review already exists in the array (for idempotency, though unique index helps)
+    if (!skillToUpdate.reviews.includes(review._id)) {
+      skillToUpdate.reviews.push(review._id);
+      await skillToUpdate.save(); // Save the skill to persist the new review reference
+    }
+  }
+  // --- FIX END ---
 
   // 4. Update average rating of the skill
   await Skill.calculateAverageRating(skillId);
