@@ -1,3 +1,4 @@
+
 const Skill = require('../models/Skill');
 const asyncHandler = require('../middleware/asyncHandler');
 
@@ -54,9 +55,9 @@ exports.getSkillById = asyncHandler(async (req, res) => {
   const skill = await Skill.findById(req.params.id)
     .populate('createdBy', 'name avatar bio')
     .populate({
-      path: 'reviews',
+      path: 'reviews', // This is the array on the Skill model
       populate: {
-        path: 'userId',
+        path: 'userId', // Nested populate for the user who wrote the review
         select: 'name avatar',
       },
     });
@@ -91,10 +92,9 @@ exports.updateSkill = asyncHandler(async (req, res) => {
   const skill = await Skill.findById(req.params.id);
   if (!skill) {
     res.status(404);
-    throw new Error('Skill not found');
+    throw new new Error('Skill not found');
   }
 
-  // Authorization: only owner can update
   if (skill.createdBy.toString() !== req.user.id) {
     res.status(403);
     throw new Error('You are not authorized to update this skill');
@@ -124,7 +124,6 @@ exports.deleteSkill = asyncHandler(async (req, res) => {
     throw new Error('Skill not found');
   }
 
-  // Authorization: only owner or admin
   if (skill.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
     res.status(403);
     throw new Error('You are not authorized to delete this skill');
