@@ -82,7 +82,7 @@ reviewSchema.statics.calculateAverageRating = async function(skillId) {
             });
         }
     } catch (err) {
-        console.error(err);
+        console.error('Error in calculateAverageRating:', err); // Added console.error
     }
 };
 
